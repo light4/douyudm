@@ -1,18 +1,20 @@
 use std::{thread, time::Duration};
 
-use crate::config::HEARBEAT_INTERVAL;
 use color_eyre::Result;
-use serde_json::json;
-use serde_json::Value;
+use serde_json::{json, Value};
+
+use crate::config::{Cli, HEARBEAT_INTERVAL};
 
 #[derive(Debug)]
 pub struct Client {
-    room_id: String,
+    pub room_id: u64,
 }
 
 impl Client {
-    pub fn run(&self) -> Result<()> {
-        self.init_websocket()
+    pub fn new(cli: &Cli) -> Self {
+        Self {
+            room_id: cli.room_id,
+        }
     }
 
     pub fn init_websocket(&self) -> Result<()> {

@@ -5,26 +5,26 @@ mod packet;
 
 use std::time::{Duration, Instant};
 
-use crate::{config::random_wss_url, msg::deserialize};
+use clap::Parser;
 use color_eyre::Result;
 use futures_util::{future, pin_mut, SinkExt, StreamExt};
-use serde_json::Value;
-use serde_json::{json, Deserializer};
+use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::{
     connect_async_with_config,
-    tungstenite::client::IntoClientRequest,
-    tungstenite::protocol::Message,
-    tungstenite::{extensions::DeflateConfig, protocol::WebSocketConfig},
+    tungstenite::{
+        client::IntoClientRequest,
+        extensions::DeflateConfig,
+        protocol::{Message, WebSocketConfig},
+    },
     WebSocketStream,
 };
 
+use crate::{config::random_wss_url, msg::deserialize};
+
 pub async fn real_main() -> Result<()> {
-    let roomid = if let Some(room) = std::env::args().nth(1) {
-        room.parse().unwrap_or(9999)
-    } else {
-        9999
-    };
+    let cli = config::Cli::parse();
+    let client = client::Client::new(&cli);
 
     let wss_url = random_wss_url();
     let request = wss_url.into_client_request()?;
@@ -35,11 +35,11 @@ pub async fn real_main() -> Result<()> {
 
     let (mut ws_stream, _) = connect_async_with_config(request, conn_config).await?;
 
-    let msg = json!({"type": "loginreq", "roomid": roomid});
+    let msg = json!({"type": "loginreq", "roomid": client.room_id});
     let encoded = packet::encode(&msg::serialize(&msg));
     ws_stream.send(Message::binary(encoded)).await?;
 
-    let msg = json!({"type": "joingroup", "rid": roomid, "gid": -9999});
+    let msg = json!({"type": "joingroup", "rid": client.room_id, "gid": -9999});
     let encoded = packet::encode(&msg::serialize(&msg));
     ws_stream.send(Message::binary(encoded)).await?;
 
@@ -60,7 +60,7 @@ pub async fn real_main() -> Result<()> {
             }
         }
 
-        if last_tick.elapsed() >= Duration::from_secs(45) {
+        if last_tick.elapsed() >= Duration::from_secs(config::HEARBEAT_INTERVAL) {
             let msg = json!({"type": "mrkl"});
             let encoded = packet::encode(&msg::serialize(&msg));
             ws_stream.send(Message::binary(encoded)).await?;
@@ -68,6 +68,6 @@ pub async fn real_main() -> Result<()> {
         }
     }
 
-    ws_stream.close(None).await?;
-    Ok(())
+    // ws_stream.close(None).await?;
+    // Ok(())
 }
