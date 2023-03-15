@@ -45,6 +45,13 @@ pub async fn real_main() -> Result<()> {
 
     let mut last_tick = Instant::now();
     loop {
+        if last_tick.elapsed() >= Duration::from_secs(config::HEARBEAT_INTERVAL) {
+            let msg = json!({"type": "mrkl"});
+            let encoded = packet::encode(&msg::serialize(&msg));
+            ws_stream.send(Message::binary(encoded)).await?;
+            last_tick = Instant::now();
+        }
+
         let msg = ws_stream.next().await.expect("Can't fetch case count")?;
         let resp = packet::decode(msg.into_data());
         let deserialized = deserialize(&resp);
@@ -56,15 +63,8 @@ pub async fn real_main() -> Result<()> {
                 let level = obj.get("level").unwrap().as_str().unwrap_or("0");
                 let nickname = obj.get("nn").unwrap().as_str().unwrap_or_default();
                 let txt = obj.get("txt").unwrap().as_str().unwrap_or_default();
-                println!("[{:2}][{}]: {}", level, nickname, txt);
+                println!("[{:2}][{}] {}", level, nickname, txt);
             }
-        }
-
-        if last_tick.elapsed() >= Duration::from_secs(config::HEARBEAT_INTERVAL) {
-            let msg = json!({"type": "mrkl"});
-            let encoded = packet::encode(&msg::serialize(&msg));
-            ws_stream.send(Message::binary(encoded)).await?;
-            last_tick = Instant::now();
         }
     }
 
