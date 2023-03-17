@@ -56,7 +56,7 @@ pub async fn real_main() -> Result<()> {
         let resp = packet::decode(msg.into_data());
         let deserialized = deserialize(&resp);
         if let Some(obj) = deserialized.as_object() {
-            let res_type = obj.get("type").unwrap().as_str().unwrap_or_default();
+            let res_type = obj.get("type").and_then(|i| i.as_str()).unwrap_or_default();
             if res_type == "loginres" {
                 println!("登录成功");
             } else if res_type == "chatmsg" {
